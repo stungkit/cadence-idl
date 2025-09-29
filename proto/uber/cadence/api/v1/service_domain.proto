@@ -47,6 +47,9 @@ service DomainAPI {
   // UpdateDomain is used to update the information and configuration for a registered domain.
   rpc UpdateDomain(UpdateDomainRequest) returns (UpdateDomainResponse);
 
+  // FailoverDomain is used to failover a registered domain to a different cluster
+  rpc FailoverDomain(FailoverDomainRequest) returns (FailoverDomainResponse);
+
   // DeprecateDomain us used to update status of a registered domain to DEPRECATED.  Once the domain is deprecated
   // it cannot be used to start new workflow executions.  Existing workflow executions will continue to run on
   // deprecated domains.
@@ -103,6 +106,15 @@ message UpdateDomainRequest {
 }
 
 message UpdateDomainResponse {
+  Domain domain = 1;
+}
+
+message FailoverDomainRequest {
+  string name = 1;
+  ActiveClusters active_clusters = 10;
+}
+
+message FailoverDomainResponse {
   Domain domain = 1;
 }
 
