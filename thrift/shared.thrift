@@ -50,8 +50,7 @@ exception EntityNotExistsError {
   1: required string message
   2: optional string currentCluster
   3: optional string activeCluster
-  // activeClusters is a list of active clusters for active-active domain
-  4: required list<string> activeClusters
+  4: required list<string> activeClusters // todo(david.porter) remove as its disused
 }
 
 exception ServiceBusyError {
@@ -72,8 +71,7 @@ exception DomainNotActiveError {
   2: required string domainName
   3: required string currentCluster
   4: required string activeCluster
-  // activeClusters is a list of active clusters for active-active domain
-  5: required list<string> activeClusters
+  5: required list<string> activeClusters // todo (david.porter) remove this field as it's disused
 }
 
 exception LimitExceededError {
@@ -1108,12 +1106,37 @@ struct DomainReplicationConfiguration {
  30: optional ActiveClusters activeClusters
 }
 
-struct ActiveClusters {
-  // activeClustersByRegion is a map of region name to active cluster info for active-active domain
-  10: optional map<string, ActiveClusterInfo> activeClustersByRegion
+// ClusterAttributeScope is a mapping of the cluster atribute to the scope's
+// current stae and failover version, indicating how recently the change was made
+struct ClusterAttributeScope {
+  10: optional map<string, ActiveClusterInfo> clusterAttributes;
 }
 
-// ActiveClusterInfo contains the configuration of active-active domain's active cluster & failover version for a specific region
+// activeClustersByClusterAttribute is a map of whatever subdivision of the domain chosen
+// to active cluster info for active-active domains. The key refers to the type of
+// cluster attribute and the value refers to its cluster mappings.
+// 
+// For example, a request to update the domain for two locations
+// 
+// UpdateDomainRequest{
+//    ReplicationConfiguration: {
+//       ActiveClusters: {
+//           ActiveClustersByClusterAttribute: {
+//             "location": ClusterAttributeScope{
+//                   "Tokyo": {ActiveClusterInfo: "cluster0, FailoverVersion: 123}, 
+//                   "Morocco": {ActiveClusterInfo: "cluster1", FailoverVersion: 100}, 
+//             }
+//          }
+//       }
+//    }
+//  }
+struct ActiveClusters {
+  10: optional map<string, ActiveClusterInfo> activeClustersByRegion // todo (david.porter) remove this as it's no longer used
+  11: optional map<string, ClusterAttributeScope> activeClustersByClusterAttribute
+}
+
+// ActiveClusterInfo contains the configuration of active-active domain's active
+// cluster & failover version for a specific region
 struct ActiveClusterInfo {
   10: optional string activeClusterName
   20: optional i64 (js.type = "Long") failoverVersion
@@ -1127,8 +1150,10 @@ struct RegisterDomainRequest {
   50: optional bool emitMetric = true
   60: optional list<ClusterReplicationConfiguration> clusters
   70: optional string activeClusterName
-  // activeClusters is a map of region name to active cluster name for active-active domain
+  // todo (david.porter) remove this field as it's not going to be used
   75: optional map<string, string> activeClustersByRegion
+  // activeClusters is a map of cluster-attribute name to active cluster name for active-active domain
+  76: optional ActiveClusters activeClusters
   // A key-value map for any customized purpose
   80: optional map<string,string> data
   90: optional string securityToken
@@ -2126,19 +2151,43 @@ struct TaskKey {
   20: optional i64 taskID
 }
 
+// ActiveClusterSelectionPolicy is for active-active domains, it serves as a means to select
+// the active cluster, by specifying the attribute by which to divide the workflows
+// in that domain.
 struct ActiveClusterSelectionPolicy {
-  10: optional ActiveClusterSelectionStrategy strategy
+  1: optional ClusterAttribute clusterAttribute
 
-  // sticky_region is the region sticky if strategy is ACTIVE_CLUSTER_SELECTION_STRATEGY_REGION_STICKY
-  // This is the default strategy for active-active domains and region would be set to receiver cluster's region if not specified.
-  20: optional string stickyRegion
-
-  // external_entity_type/external_entity_key is the type/key of the external entity if strategy is ACTIVE_CLUSTER_SELECTION_STRATEGY_EXTERNAL_ENTITY
-  // external entity type must be one of the supported types in active cluster manager. Custom ones can be added by implementing the corresponding interface.
-  30: optional string externalEntityType
-  40: optional string externalEntityKey
+  10: optional ActiveClusterSelectionStrategy strategy // todo (david.porter) remove these as they're not used anymore
+  20: optional string stickyRegion                     // todo (david.porter) remove these as they're not used anymore
+  30: optional string externalEntityType               // todo (david.porter) remove these as they're not used anymore
+  40: optional string externalEntityKey                // todo (david.porter) remove these as they're not used anymore
 }
 
+// ClusterAttribute is used for subdividing workflows in a domain into their active
+// and passive clusters. Examples of this might be 'region' and 'cluster1' as
+// respective region and scope fields.
+// 
+// for example, a workflow may specify this in it's start request:
+// 
+//   StartWorkflowRequest{
+//     ActiveClusterSelectionPolicy: {
+//       ClusterAttribute: {
+//            Scope: "cityID",
+//            Name: "Lisbon" 
+//        }
+//     }
+//   }
+// 
+// and this means that this workflow will be associate with the domain's cluster attribute 'Lisbon',
+// be active in the cluster that has Lisbon active and 
+// failover when that cluster-attribute is set to failover.
+struct ClusterAttribute {
+  1: optional string scope
+  2: optional string name
+}
+
+// todo (david.porter) Remove this, as it's no longer needed
+// with the active/active configuration we have
 enum ActiveClusterSelectionStrategy {
   REGION_STICKY,
   EXTERNAL_ENTITY,
