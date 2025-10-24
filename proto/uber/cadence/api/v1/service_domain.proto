@@ -22,14 +22,16 @@ syntax = "proto3";
 
 package uber.cadence.api.v1;
 
+import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "uber/cadence/api/v1/common.proto";
+import "uber/cadence/api/v1/domain.proto";
+
 option go_package = "github.com/uber/cadence-idl/go/proto/api/v1;apiv1";
 option java_multiple_files = true;
 option java_outer_classname = "DomainServiceProto";
 option java_package = "com.uber.cadence.api.v1";
-
-import "google/protobuf/duration.proto";
-import "google/protobuf/field_mask.proto";
-import "uber/cadence/api/v1/domain.proto";
 
 service DomainAPI {
   // RegisterDomain creates a new domain which can be used as a container for all resources.  Domain is a top level
@@ -61,6 +63,9 @@ service DomainAPI {
   // - Is irreversible and removes all domain data
   // - Requires proper permissions and security token
   rpc DeleteDomain(DeleteDomainRequest) returns (DeleteDomainResponse);
+
+  // ListFailoverHistory returns the history of failover events for a domain.
+  rpc ListFailoverHistory(ListFailoverHistoryRequest) returns (ListFailoverHistoryResponse);
 }
 
 message RegisterDomainRequest {
@@ -81,8 +86,7 @@ message RegisterDomainRequest {
   ActiveClusters active_clusters = 15;
 }
 
-message RegisterDomainResponse {
-}
+message RegisterDomainResponse {}
 
 message UpdateDomainRequest {
   string security_token = 1;
@@ -127,16 +131,14 @@ message DeprecateDomainRequest {
   string name = 2;
 }
 
-message DeprecateDomainResponse {
-}
+message DeprecateDomainResponse {}
 
 message DeleteDomainRequest {
   string security_token = 1;
   string name = 2;
 }
 
-message DeleteDomainResponse {
-}
+message DeleteDomainResponse {}
 
 message DescribeDomainRequest {
   oneof describe_by {
@@ -157,4 +159,45 @@ message ListDomainsRequest {
 message ListDomainsResponse {
   repeated Domain domains = 1;
   bytes next_page_token = 2;
+}
+
+message ListFailoverHistoryRequest {
+  // ListFailoverHistoryRequestFilters specifies the filters to apply to the request.
+  // If not provided all failover events will be returned.
+  ListFailoverHistoryRequestFilters filters = 1;
+  // PaginationOptions will be used to paginate the results.
+  // If not provided the first 5 events will be returned.
+  PaginationOptions pagination = 2;
+}
+
+// ListFailoverHistoryRequestFilters is used to filter the failover history.
+// It will be extended with additional filters (e.g ClusterAttributes) as the active-active feature is developed.
+message ListFailoverHistoryRequestFilters {
+  // domain_id is the id of the domain to list failover history for.
+  // domain_id is required.
+  string domain_id = 1;
+}
+
+message ListFailoverHistoryResponse {
+  repeated FailoverEvent failover_events = 1;
+  // next_page_token can be passed in a subsequent request to fetch the next set of events.
+  bytes next_page_token = 2;
+}
+
+message FailoverEvent {
+  // id of the failover event
+  string id = 1;
+  // created_time is the time the failover event was created.
+  google.protobuf.Timestamp created_time = 2;
+  FailoverType failover_type = 3;
+  // cluster_failovers lists all failovers for this event.
+  repeated ClusterFailover cluster_failovers = 4;
+}
+
+message ClusterFailover {
+  ActiveClusterInfo from_cluster = 1;
+  ActiveClusterInfo to_cluster = 2;
+  // cluster_attribute is the scope and name for the attribute that was failed over.
+  // If the cluster_attribute is not defined this failover can be assumed to be the default ActiveCluster.
+  ClusterAttribute cluster_attribute = 3;
 }
