@@ -26,3 +26,18 @@ steps:
                 command:
                 - |-
                   make proto-lint
+
+  - label: "thrift compile"
+    agents:
+      queue: "buildkite-gcp"
+    plugins:
+      - kubernetes:
+          <<: *kubernetes
+          podSpec:
+            <<: *podSpec
+            containers:
+              - <<: *commandContainer
+                command:
+                - |-
+                  apt-get update && apt-get install -y thrift-compiler
+                  make thriftlint

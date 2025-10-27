@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := all
 
+.PHONY: thriftlint
+
 # M1 macs may need to switch back to x86, until arm releases are available
 EMULATE_X86 =
 ifeq ($(shell uname -sm),Darwin arm64)
@@ -43,6 +45,8 @@ PROTO_FILES = $(shell find ./$(PROTO_ROOT) -name "*.proto")
 PROTO_DIRS = $(sort $(dir $(PROTO_FILES)))
 proto-lint: $(PROTO_FILES) $(BIN)/$(BUF_VERSION_BIN)
 	@$(BIN)/$(BUF_VERSION_BIN) lint
+
+THRIFT_FILES=$(shell find . -name "*.thrift")
 
 # https://www.grpc.io/docs/languages/go/quickstart/
 # protoc-gen-gogofast (yarpc) are versioned via tools.go + go.mod (built above) and will be rebuilt as needed.
@@ -88,6 +92,14 @@ proto-go: $(PROTO_FILES) $(BIN)/$(PROTOC_VERSION_BIN) $(BIN)/protoc-gen-gogofast
 	@rm -r $(PROTO_GO_OUT)/admin
 	@mv $(PROTO_GO_OUT)/uber/cadence/* $(PROTO_GO_OUT)
 	@rm -r $(PROTO_GO_OUT)/uber
+
+thriftlint:
+	@for file in $(THRIFT_FILES); do \
+		if ! thrift --gen go "$$file"; then \
+			echo "FAILED: $$file"; \
+			exit 1; \
+		fi; \
+	done
 
 all: proto-lint proto-go
 
