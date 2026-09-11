@@ -1233,6 +1233,11 @@ struct FailoverDomainRequest {
  // user-requested addition "reason" variable created to increase transparency around failovers
  40: optional string reason
  50: optional i32 failoverTimeoutInSeconds
+ // By default a failover request is only accepted by the cluster being failed over to
+ // (the destination), so an operator in an unhealthy region cannot pull a domain away
+ // from a healthy one by mistake. Set this to accept the request from any cluster,
+ // e.g. for automated rebalancing that moves attributes to several clusters at once.
+ 60: optional bool skipDestinationClusterCheck
 }
 
 struct FailoverDomainResponse {
